@@ -6,10 +6,12 @@ import MyQuiz from "./pages/MyQuiz";
 import Authentication from "./pages/Authentication";
 import PlayQuiz from "./pages/PlayQuiz";
 import ResultQuiz from "./pages/ResultQuiz";
+import Navbar from "./components/Navbar";
 
 function App() {
   return (
     <BrowserRouter>
+      <Navbar />
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/create-quiz" element={<CreateQuiz />} />
