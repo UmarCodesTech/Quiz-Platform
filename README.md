@@ -1,16 +1,101 @@
-# React + Vite
+Quiz Platform
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A responsive quiz application built with React that allows users to create quizzes, manage questions, participate in quizzes, and view their results.
 
-Currently, two official plugins are available:
+Project Overview
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+The Quiz Platform is a frontend-focused project developed to demonstrate React component development, client-side routing, form validation, state management, and browser-based data persistence.
 
-## React Compiler
+Users can create multiple-choice quizzes, manage saved quizzes, attempt active quizzes, and view their scores after submission.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Features
 
-## Expanding the ESLint configuration
+1. Home Page
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+Dashboard with navigation to quiz creation, quiz management, and quiz gameplay.
+
+Responsive card-based layout.
+
+2. Create Quiz
+
+Create quizzes with a title and multiple-choice questions.
+
+Add and remove answer options.
+
+Select the correct answer.
+
+Add multiple questions to a quiz.
+
+Validate quiz titles, questions, options, and correct answers.
+
+Save quiz data in browser localStorage.
+
+3. My Quizzes
+
+View saved quizzes in a table.
+
+View question counts and creation dates.
+
+Change quiz status between Active and Inactive.
+
+Edit quiz titles, questions, options, and correct answers.
+
+Delete quizzes with a confirmation dialog.
+
+4. Participant Authentication
+
+Enter a participant's full name before starting.
+
+Validate the name length.
+
+Pass participant information to the gameplay page.
+
+5. Play Quiz
+
+Select an available Active quiz.
+
+Display questions with radio-button answer options.
+
+Require an answer before proceeding to the next question.
+
+Support quiz submission and score calculation.
+
+Use up to 10 questions per attempt.
+
+6. Results Page
+
+Display the participant's name and quiz title.
+
+Show the score and percentage.
+
+Display a performance message.
+
+Provide navigation to Home and the quiz entry screen.
+
+Technology Stack
+
+React — UI components and application logic
+
+Vite — Development server and build tool
+
+JavaScript — Application functionality
+
+Material UI (MUI) — UI components and responsive styling
+
+React Router DOM — Client-side navigation
+
+Redux Toolkit — Redux store and quiz slice configuration
+
+Redux Thunk — Asynchronous Redux actions through Redux Toolkit
+
+Browser localStorage — Client-side quiz persistence
+
+HTML and CSS — Application structure and styling
+
+Prerequisites
+
+Install the following before running the project:
+
+Node.js (a current supported LTS release)
+npm
+Git (optional, for cloning the repository)
