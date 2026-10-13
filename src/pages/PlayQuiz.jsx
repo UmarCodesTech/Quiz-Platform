@@ -21,6 +21,7 @@ function PlayQuiz() {
   const location = useLocation();
   const navigate = useNavigate();
 
+  // Read the participant's name passed from the Authentication page.
   const fullName = location.state?.fullName || "";
 
   const [activeQuizzes, setActiveQuizzes] = useState([]);
@@ -31,18 +32,20 @@ function PlayQuiz() {
   const [answers, setAnswers] = useState([]);
   const [error, setError] = useState("");
 
+  // Load saved quizzes when the Play Quiz page first opens.
   useEffect(() => {
     try {
       const storedData = localStorage.getItem("question");
       const parsedData = storedData ? JSON.parse(storedData) : [];
 
       if (Array.isArray(parsedData)) {
+        // Only show active quizzes containing at least 10 questions.
         setActiveQuizzes(
           parsedData.filter(
             (quiz) =>
               quiz.status === "Active" &&
               Array.isArray(quiz.questions) &&
-              quiz.questions.length > 10
+              quiz.questions.length >= 10
           )
         );
       }
@@ -53,6 +56,7 @@ function PlayQuiz() {
   }, []);
 
   const handleStartQuiz = () => {
+    // Find the quiz selected by the participant.
     const quiz = activeQuizzes.find(
       (item) => String(item.id) === String(selectedQuizId)
     );
@@ -62,11 +66,13 @@ function PlayQuiz() {
       return;
     }
 
+    // Use the first 10 questions for this quiz attempt.
     setCurrentQuiz({
       ...quiz,
       questions: quiz.questions.slice(0, 10),
     });
-  
+
+    // Reset the attempt so previous answers cannot carry over.
     setCurrentQuestionIndex(0);
     setSelectedAnswer("");
     setAnswers([]);
@@ -79,15 +85,19 @@ function PlayQuiz() {
       return;
     }
 
+    // Save the selected option number for the current question.
     const updatedAnswers = [...answers];
     updatedAnswers[currentQuestionIndex] = Number(selectedAnswer);
+
     setAnswers(updatedAnswers);
     setError("");
 
     if (currentQuestionIndex < currentQuiz.questions.length - 1) {
+      // Move to the next question and clear the previous selection.
       setCurrentQuestionIndex((previousIndex) => previousIndex + 1);
       setSelectedAnswer("");
     } else {
+      // Award one point for each answer that matches the correct answer.
       const score = currentQuiz.questions.reduce(
         (total, question, index) =>
           total +
@@ -95,6 +105,7 @@ function PlayQuiz() {
         0
       );
 
+      // Send the quiz, score, and selected answers to the results page.
       navigate("/result", {
         state: {
           fullName,
@@ -102,11 +113,13 @@ function PlayQuiz() {
           totalQuestions: currentQuiz.questions.length,
           score,
           answers: updatedAnswers,
+          questions: currentQuiz.questions,
         },
       });
     }
   };
 
+  // Require the participant to enter their name before playing.
   if (!fullName) {
     return (
       <Container maxWidth="sm">
@@ -114,6 +127,7 @@ function PlayQuiz() {
           <Alert severity="info" sx={{ mb: 2 }}>
             Please enter your name before starting a quiz.
           </Alert>
+
           <Button
             variant="contained"
             onClick={() => navigate("/authentication")}

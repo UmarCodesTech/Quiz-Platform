@@ -35,6 +35,7 @@ function CreateQuiz() {
   const [savedQuestions, setSavedQuestions] = useState([]);
   const [successOpen, setSuccessOpen] = useState(false);
 
+  // Open the form only when the single-answer MCQ type is selected.
   const handleContinue = () => {
     if (questionType === "single") {
       setShowForm(true);
@@ -44,16 +45,19 @@ function CreateQuiz() {
     }
   };
 
+  // Add another empty option to the current question.
   const handleAddOption = () => {
     setOptions([...options, ""]);
   };
 
+  // Update one option without changing the other options.
   const handleOptionChange = (index, value) => {
     const updatedOptions = [...options];
     updatedOptions[index] = value;
     setOptions(updatedOptions);
   };
 
+  // Keep at least two options and adjust the correct answer when one is removed.
   const handleDeleteOption = (index) => {
     if (options.length <= 2) {
       setError("At least two options are required.");
@@ -64,6 +68,7 @@ function CreateQuiz() {
       options.filter((_, optionIndex) => optionIndex !== index)
     );
 
+    // Clear or update the correct answer to match the remaining option positions.
     if (correctAnswer === String(index + 1)) {
       setCorrectAnswer("");
     } else if (Number(correctAnswer) > index + 1) {
@@ -73,6 +78,7 @@ function CreateQuiz() {
     setError("");
   };
 
+  // Validate the title, question, options, and selected correct answer.
   const validateQuestion = () => {
     if (quizTitle.trim().length < 10 || quizTitle.trim().length > 30) {
       setError("Quiz title must be between 10 and 30 characters.");
@@ -84,12 +90,13 @@ function CreateQuiz() {
       return false;
     }
 
+    // Empty options do not count toward the minimum requirement.
     const validOptions = options.filter(
       (option) => option.trim() !== ""
     );
 
     if (validOptions.length < 2) {
-      setError("Atleast two option required to save question");
+      setError("At least two non-empty options are required.");
       return false;
     }
 
@@ -105,6 +112,7 @@ function CreateQuiz() {
     return true;
   };
 
+  // Validate and add the current question to the quiz in progress.
   const handleAddQuestion = () => {
     if (!validateQuestion()) {
       return;
@@ -121,21 +129,23 @@ function CreateQuiz() {
       newQuestion,
     ]);
 
+    // Reset question fields so another question can be entered.
     setQuestion("");
     setOptions(["", ""]);
     setCorrectAnswer("");
     setError("");
   };
 
+  // Save the quiz and preserve all quizzes that already exist in localStorage.
   const handleSaveQuiz = () => {
     const hasCurrentQuestion =
       question.trim() !== "" ||
       options.some((option) => option.trim() !== "") ||
       correctAnswer !== "";
 
-    let questionsToSave = [...savedQuestions];
+    const questionsToSave = [...savedQuestions];
 
-    // Include the question currently in the form, if there is one.
+    // Include the question currently in the form, if one has been started.
     if (hasCurrentQuestion) {
       if (!validateQuestion()) {
         return;
@@ -177,12 +187,13 @@ function CreateQuiz() {
         createdAt: new Date().toISOString(),
       };
 
-      // Keep existing quizzes and append this new quiz.
+      // Append the new quiz instead of replacing existing saved quizzes.
       localStorage.setItem(
         "question",
         JSON.stringify([...existingQuizzes, newQuiz])
       );
 
+      // Reset the form after the quiz has been saved successfully.
       setSavedQuestions([]);
       setQuestion("");
       setOptions(["", ""]);
@@ -229,7 +240,10 @@ function CreateQuiz() {
               fullWidth
               label="Quiz Title"
               value={quizTitle}
-              onChange={(event) => setQuizTitle(event.target.value)}
+              onChange={(event) => {
+                setQuizTitle(event.target.value);
+                setError("");
+              }}
               slotProps={{ htmlInput: { maxLength: 30 } }}
               helperText="Enter 10–30 characters"
               sx={{ mb: 3, mt: 1 }}
@@ -257,7 +271,10 @@ function CreateQuiz() {
               fullWidth
               label="Question"
               value={question}
-              onChange={(event) => setQuestion(event.target.value)}
+              onChange={(event) => {
+                setQuestion(event.target.value);
+                setError("");
+              }}
               slotProps={{ htmlInput: { maxLength: 200 } }}
               helperText="Enter 10–200 characters"
               multiline
@@ -310,7 +327,10 @@ function CreateQuiz() {
               fullWidth
               label="Correct Answer"
               value={correctAnswer}
-              onChange={(event) => setCorrectAnswer(event.target.value)}
+              onChange={(event) => {
+                setCorrectAnswer(event.target.value);
+                setError("");
+              }}
               sx={{ mt: 3 }}
             >
               {options.map((option, index) => (
@@ -363,6 +383,7 @@ function CreateQuiz() {
         )}
       </Box>
 
+      {/* Let the user select the question type before opening the form. */}
       <Dialog
         open={open}
         onClose={() => setOpen(false)}
@@ -418,6 +439,7 @@ function CreateQuiz() {
         </DialogActions>
       </Dialog>
 
+      {/* Confirm that the quiz was saved and offer a link to My Quizzes. */}
       <Dialog
         open={successOpen}
         onClose={handleCloseSuccess}

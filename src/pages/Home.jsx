@@ -11,6 +11,7 @@ import {
 import { Link } from "react-router-dom";
 
 function Home() {
+  // Store the content and navigation path for each home page card.
   const cards = [
     {
       title: "Create New Quiz",
@@ -37,6 +38,7 @@ function Home() {
 
   return (
     <Container maxWidth="lg">
+      {/* Introduce the platform and explain its main purpose. */}
       <Box sx={{ py: 5, textAlign: "center" }}>
         <Typography variant="h3" component="h1" gutterBottom>
           Welcome to Quiz Platform
@@ -47,6 +49,8 @@ function Home() {
         </Typography>
       </Box>
 
+      {/* Use a responsive grid: one column on mobile, two on small screens,
+          and three on medium and larger screens. */}
       <Box
         sx={{
           display: "grid",
@@ -59,6 +63,7 @@ function Home() {
           pb: 5,
         }}
       >
+        {/* Generate each card from the shared cards array. */}
         {cards.map((card) => (
           <Card
             key={card.title}
@@ -68,6 +73,7 @@ function Home() {
               height: "100%",
             }}
           >
+            {/* Keep card content flexible so the action buttons align consistently. */}
             <CardContent sx={{ flexGrow: 1, textAlign: "center" }}>
               <Typography
                 variant="h3"
@@ -85,6 +91,7 @@ function Home() {
               </Typography>
             </CardContent>
 
+            {/* Use React Router links to navigate without a full page reload. */}
             <CardActions sx={{ justifyContent: "center", pb: 2 }}>
               <Button
                 variant="contained"

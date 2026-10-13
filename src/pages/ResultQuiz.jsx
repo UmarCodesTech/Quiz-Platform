@@ -1,4 +1,5 @@
 
+import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   Box,
@@ -7,26 +8,35 @@ import {
   Paper,
   Typography,
   LinearProgress,
+  Divider,
 } from "@mui/material";
 
 function ResultQuiz() {
   const location = useLocation();
   const navigate = useNavigate();
 
+  // Read the completed quiz attempt passed from PlayQuiz.
   const {
     fullName,
     quizTitle,
     totalQuestions,
     score,
+    questions,
+    answers,
   } = location.state || {};
 
-  // Handle direct access without a submitted quiz.
+  // Control whether the answer review is visible.
+  const [showAnswers, setShowAnswers] = useState(false);
+
+  // Prevent access to results without a valid completed quiz.
   if (
     !fullName ||
     !quizTitle ||
     !Number.isFinite(score) ||
     !Number.isFinite(totalQuestions) ||
-    totalQuestions <= 0
+    totalQuestions <= 0 ||
+    score < 0 ||
+    score > totalQuestions
   ) {
     return (
       <Container maxWidth="sm">
@@ -40,10 +50,7 @@ function ResultQuiz() {
               Complete a quiz to view your results.
             </Typography>
 
-            <Button
-              variant="contained"
-              onClick={() => navigate("/")}
-            >
+            <Button variant="contained" onClick={() => navigate("/")}>
               Go Home
             </Button>
           </Paper>
@@ -52,18 +59,24 @@ function ResultQuiz() {
     );
   }
 
+  // Calculate the percentage score.
   const percentage = Math.round((score / totalQuestions) * 100);
 
   let performance;
+  let resultColor;
 
-  if (percentage >= 80) {
-    performance = "Excellent work!";
-  } else if (percentage >= 60) {
-    performance = "Good job!";
-  } else if (percentage >= 40) {
-    performance = "Keep practising!";
+  // 60% and below: Failed (red).
+  // Above 60% and below 80%: Pass (blue).
+  // 80% and above: Excellent (green).
+  if (percentage <= 60) {
+    performance = "Failed";
+    resultColor = "error";
+  } else if (percentage < 80) {
+    performance = "Pass";
+    resultColor = "info";
   } else {
-    performance = "Keep learning and try again!";
+    performance = "Excellent";
+    resultColor = "success";
   }
 
   return (
@@ -89,9 +102,10 @@ function ResultQuiz() {
             {quizTitle}
           </Typography>
 
+          {/* Display the percentage in the category's color. */}
           <Typography
             variant="h2"
-            color="primary.main"
+            color={`${resultColor}.main`}
             fontWeight="bold"
           >
             {percentage}%
@@ -101,16 +115,112 @@ function ResultQuiz() {
             {score} out of {totalQuestions} correct
           </Typography>
 
+          {/* Match the progress bar color to the result category. */}
           <LinearProgress
             variant="determinate"
             value={percentage}
+            color={resultColor}
             sx={{ height: 10, borderRadius: 5, mb: 3 }}
           />
 
-          <Typography variant="h6" sx={{ mb: 4 }}>
+          <Typography
+            variant="h5"
+            color={`${resultColor}.main`}
+            fontWeight="bold"
+            sx={{ mb: 4 }}
+          >
             {performance}
           </Typography>
 
+          {/* Show or hide the answer review. */}
+          {Array.isArray(questions) && questions.length > 0 && (
+            <Button
+              variant="outlined"
+              fullWidth
+              onClick={() => setShowAnswers((previous) => !previous)}
+              sx={{ mb: 3 }}
+            >
+              {showAnswers ? "Hide Correct Answers" : "View Correct Answers"}
+            </Button>
+          )}
+
+          {/* Compare selected answers with the correct answers. */}
+          {showAnswers && Array.isArray(questions) && (
+            <Box sx={{ textAlign: "left", mb: 3 }}>
+              <Typography variant="h5" fontWeight="bold" sx={{ mb: 2 }}>
+                Answer Review
+              </Typography>
+
+              {questions.map((question, index) => {
+                const correctIndex = Number(question.correctAnswer) - 1;
+
+                // Convert the selected option number to its array index.
+                const selectedIndex =
+                  Array.isArray(answers) &&
+                  Number.isFinite(answers[index]) &&
+                  answers[index] > 0
+                    ? answers[index] - 1
+                    : -1;
+
+                const correctAnswer = question.options?.[correctIndex];
+
+                const selectedAnswer =
+                  selectedIndex >= 0
+                    ? question.options?.[selectedIndex]
+                    : undefined;
+
+                const isCorrect =
+                  selectedIndex >= 0 &&
+                  Number(question.correctAnswer) === selectedIndex + 1;
+
+                return (
+                  <Box key={index} sx={{ mb: 3 }}>
+                    <Typography fontWeight="bold" sx={{ mb: 1 }}>
+                      {index + 1}. {question.question}
+                    </Typography>
+
+                    {/* Use a red background for wrong answers and green for correct ones. */}
+                    <Box
+                      sx={{
+                        p: 1.5,
+                        mb: 1,
+                        borderRadius: 2,
+                        bgcolor: isCorrect ? "success.light" : "error.light",
+                        color: isCorrect ? "success.dark" : "error.dark",
+                        overflowWrap: "anywhere",
+                      }}
+                    >
+                      <Typography fontWeight="bold">
+                        Your answer: {selectedAnswer ?? "Not answered"}
+                        {isCorrect ? " ✓" : " ✗"}
+                      </Typography>
+                    </Box>
+
+                    {/* Always show the correct answer with a green background. */}
+                    <Box
+                      sx={{
+                        p: 1.5,
+                        borderRadius: 2,
+                        bgcolor: "success.light",
+                        color: "success.dark",
+                        overflowWrap: "anywhere",
+                      }}
+                    >
+                      <Typography fontWeight="bold">
+                        Correct answer: {correctAnswer ?? "Unavailable"} ✓
+                      </Typography>
+                    </Box>
+
+                    {index < questions.length - 1 && (
+                      <Divider sx={{ mt: 2 }} />
+                    )}
+                  </Box>
+                );
+              })}
+            </Box>
+          )}
+
+          {/* Navigate back to the home page. */}
           <Button
             variant="contained"
             fullWidth
@@ -120,6 +230,7 @@ function ResultQuiz() {
             Back to Home
           </Button>
 
+          {/* Allow the participant to attempt another quiz. */}
           <Button
             variant="outlined"
             fullWidth

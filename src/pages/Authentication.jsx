@@ -18,13 +18,24 @@ function Authentication() {
   const handleStart = (event) => {
     event.preventDefault();
 
+    // Remove leading and trailing spaces before validating the name.
     const trimmedName = fullName.trim();
 
-    if (trimmedName.length < 5 || trimmedName.length > 50) {
-      setError("Full name must be between 5 and 50 characters.");
+    // Check that the name contains between 5 and 50 characters.
+    if (trimmedName.length < 3 || trimmedName.length > 50) {
+      setError("Full name must be between 3 and 50 characters.");
       return;
     }
 
+    // Allow English letters and spaces only.
+    const namePattern = /^[A-Za-z ]+$/;
+
+    if (!namePattern.test(trimmedName)) {
+      setError("Name must contain only letters and spaces.");
+      return;
+    }
+
+    // Pass the validated name to the Play Quiz page.
     navigate("/play-quiz", {
       state: { fullName: trimmedName },
     });
@@ -56,12 +67,14 @@ function Authentication() {
             Enter your full name to begin your quiz.
           </Typography>
 
-          <Box component="form" onSubmit={handleStart}>
+          <Box component="form" onSubmit={handleStart} noValidate>
             <TextField
               label="Full Name"
               value={fullName}
               onChange={(event) => {
                 setFullName(event.target.value);
+
+                // Clear the previous validation message when the user edits the name.
                 setError("");
               }}
               fullWidth

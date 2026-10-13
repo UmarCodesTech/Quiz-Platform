@@ -36,6 +36,7 @@ function MyQuiz() {
   const [editQuestions, setEditQuestions] = useState([]);
   const [editError, setEditError] = useState("");
 
+ //load saved quizzes from local storage when the page first opens. 
   useEffect(() => {
     try {
       const storedData = localStorage.getItem("question");
@@ -51,7 +52,7 @@ function MyQuiz() {
       console.error("Unable to read saved quizzes:", error);
     }
   }, []);
-
+  //save the updated quiz list to local storage and refresh the state
   const persistQuizzes = (updatedQuizzes) => {
     localStorage.setItem("question", JSON.stringify(updatedQuizzes));
     setQuizzes(updatedQuizzes);
@@ -71,7 +72,7 @@ function MyQuiz() {
     setSelectedQuiz(quiz);
     setDeleteDialogOpen(true);
   };
-
+  // Close the delete confirmation dialog without deleting the quiz
   const handleCancelDelete = () => {
     setDeleteDialogOpen(false);
     setSelectedQuiz(null);
@@ -104,7 +105,7 @@ function MyQuiz() {
     setEditError("");
     setEditDialogOpen(true);
   };
-
+  // Close the edit dialog and clear the current editing state and errors
   const handleCloseEdit = () => {
     setEditDialogOpen(false);
     setEditingQuizId(null);
