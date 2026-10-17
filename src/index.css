@@ -1,3 +1,4 @@
+
 /* Define the application's shared colors, fonts, and visual settings. */
 :root {
   --text: #6b6375;
@@ -13,12 +14,10 @@
     rgba(0, 0, 0, 0.1) 0 10px 15px -3px,
     rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
 
-  /* Define font families for regular text, headings, and code. */
   --sans: system-ui, "Segoe UI", Roboto, sans-serif;
   --heading: system-ui, "Segoe UI", Roboto, sans-serif;
   --mono: ui-monospace, Consolas, monospace;
 
-  /* Set the default typography and page colors. */
   font: 18px/145% var(--sans);
   letter-spacing: 0.18px;
   color-scheme: light dark;
@@ -28,9 +27,11 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
 
-  /* Reduce the default font size on smaller screens. */
-  @media (max-width: 1024px) {
+/* Adjust the default font size on smaller screens. */
+@media (max-width: 1024px) {
+  :root {
     font-size: 16px;
   }
 }
@@ -52,28 +53,38 @@
       rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
   }
 
-  /* Keep social button icons visible in dark mode. */
   #social .button-icon {
     filter: invert(1) brightness(2);
   }
 }
 
-/* Remove the browser's default spacing around the page. */
-body {
-  margin: 0;
+/* Use predictable sizing throughout the application. */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
 }
 
-/* Center the application and allow its content to grow vertically. */
+/* Make the document occupy the full viewport width. */
+html,
+body {
+  width: 100%;
+  min-height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+/* Remove the fixed-width restriction from the React application. */
 #root {
-  width: 1126px;
-  max-width: 100%;
-  margin: 0 auto;
+  width: 100%;
+  max-width: none;
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
   text-align: center;
-  border-inline: 1px solid var(--border);
-  min-height: 100svh;
+  border-inline: none;
   display: flex;
   flex-direction: column;
-  box-sizing: border-box;
 }
 
 /* Apply consistent typography to headings. */
@@ -89,8 +100,10 @@ h1 {
   font-size: 56px;
   letter-spacing: -1.68px;
   margin: 32px 0;
+}
 
-  @media (max-width: 1024px) {
+@media (max-width: 1024px) {
+  h1 {
     font-size: 36px;
     margin: 20px 0;
   }
@@ -102,8 +115,10 @@ h2 {
   line-height: 118%;
   letter-spacing: -0.24px;
   margin: 0 0 8px;
+}
 
-  @media (max-width: 1024px) {
+@media (max-width: 1024px) {
+  h2 {
     font-size: 20px;
   }
 }

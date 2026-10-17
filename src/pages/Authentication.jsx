@@ -23,7 +23,7 @@ function Authentication() {
 
     // Check that the name contains between 5 and 50 characters.
     if (trimmedName.length < 5 || trimmedName.length > 50) {
-      setError("Full name must be between 3 and 50 characters.");
+      setError("Full name must be between 5 and 50 characters.");
       return;
     }
 
