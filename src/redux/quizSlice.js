@@ -1,60 +1,84 @@
+
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 
 // Load saved quizzes from localStorage asynchronously.
 export const loadQuizzes = createAsyncThunk(
   "quiz/loadQuizzes",
-  async () => {
-    const storedData = localStorage.getItem("question");
+  async (_, { rejectWithValue }) => {
+    try {
+      const storedData = localStorage.getItem("question");
 
-    // Return saved quizzes, or an empty array if none exist.
-    return storedData ? JSON.parse(storedData) : [];
+      // Return an empty array if no quizzes exist.
+      if (!storedData) {
+        return [];
+      }
+
+      // Convert the saved JSON string into JavaScript data.
+      const parsedData = JSON.parse(storedData);
+
+      // Ensure the saved data is an array.
+      if (!Array.isArray(parsedData)) {
+        return rejectWithValue(
+          "Saved quiz data is not in the expected format."
+        );
+      }
+
+      return parsedData;
+    } catch (error) {
+      return rejectWithValue(
+        error instanceof Error
+          ? error.message
+          : "Unable to load saved quizzes."
+      );
+    }
   }
 );
 
+// Initial Redux state.
+const initialState = {
+  quizzes: [],
+  loading: false,
+  error: null,
+};
+
+// Create the quiz slice.
 const quizSlice = createSlice({
   name: "quiz",
+  initialState,
 
-  // Define the initial state for quiz data and loading status.
-  initialState: {
-    quizzes: [],
-    loading: false,
-    error: null,
-  },
-
+  // Synchronous reducers.
   reducers: {
-    // Update the quizzes stored in the Redux state.
     setQuizzes: (state, action) => {
-      state.quizzes = action.payload;
+      state.quizzes = Array.isArray(action.payload)
+        ? action.payload
+        : [];
     },
   },
 
-  // Handle the pending, successful, and failed states of loadQuizzes.
+  // Handle asynchronous thunk states.
   extraReducers: (builder) => {
     builder
       .addCase(loadQuizzes.pending, (state) => {
-        // Indicate that the quizzes are being loaded.
         state.loading = true;
         state.error = null;
       })
-      .addCase(loadQuizzes.fulfilled, (state, action) => {
-        // Loading is complete; store the retrieved quizzes.
-        state.loading = false;
 
-        // Ensure the loaded data is an array before updating the state.
-        state.quizzes = Array.isArray(action.payload)
-          ? action.payload
-          : [];
-      })
-      .addCase(loadQuizzes.rejected, (state, action) => {
-        // Stop loading and store the error if loading fails.
+      .addCase(loadQuizzes.fulfilled, (state, action) => {
         state.loading = false;
-        state.error = action.error.message;
+        state.quizzes = action.payload;
+        state.error = null;
+      })
+
+      .addCase(loadQuizzes.rejected, (state, action) => {
+        state.loading = false;
+        state.error =
+          action.payload || action.error.message || "Failed to load quizzes.";
       });
   },
 });
 
-// Export the action so components can update the quiz state.
+// Export the synchronous action.
 export const { setQuizzes } = quizSlice.actions;
 
-// Export the reducer for registration in the Redux store.
+// Export the reducer for the Redux store.
 export default quizSlice.reducer;

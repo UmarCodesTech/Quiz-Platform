@@ -1,5 +1,6 @@
 
 import { useEffect, useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
 import {
   Box,
   Button,
@@ -23,10 +24,20 @@ import {
   TextField,
   IconButton,
   Divider,
+  Alert,
+  CircularProgress,
 } from "@mui/material";
 
+import { loadQuizzes, setQuizzes } from "../redux/quizSlice";
+
 function MyQuiz() {
-  const [quizzes, setQuizzes] = useState([]);
+  const dispatch = useDispatch();
+
+  // Read quiz data and loading status from Redux.
+  const quizzes = useSelector((state) => state.quiz.quizzes);
+  const loading = useSelector((state) => state.quiz.loading);
+  const loadError = useSelector((state) => state.quiz.error);
+
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedQuiz, setSelectedQuiz] = useState(null);
 
@@ -36,29 +47,31 @@ function MyQuiz() {
   const [editQuestions, setEditQuestions] = useState([]);
   const [editError, setEditError] = useState("");
 
- //load saved quizzes from local storage when the page first opens. 
+  const [storageError, setStorageError] = useState("");
+
+  // Load saved quizzes through Redux Thunk.
   useEffect(() => {
-    try {
-      const storedData = localStorage.getItem("question");
+    dispatch(loadQuizzes());
+  }, [dispatch]);
 
-      if (storedData) {
-        const parsedData = JSON.parse(storedData);
-
-        if (Array.isArray(parsedData)) {
-          setQuizzes(parsedData);
-        }
-      }
-    } catch (error) {
-      console.error("Unable to read saved quizzes:", error);
-    }
-  }, []);
-  //save the updated quiz list to local storage and refresh the state
+  // Persist changes to localStorage and update Redux.
   const persistQuizzes = (updatedQuizzes) => {
-    localStorage.setItem("question", JSON.stringify(updatedQuizzes));
-    setQuizzes(updatedQuizzes);
+    try {
+      localStorage.setItem("question", JSON.stringify(updatedQuizzes));
+
+      // Update Redux only after localStorage saves successfully.
+      dispatch(setQuizzes(updatedQuizzes));
+
+      setStorageError("");
+      return true;
+    } catch (error) {
+      console.error("Unable to save quizzes:", error);
+      setStorageError("Unable to save changes. Please try again.");
+      return false;
+    }
   };
 
-  // Update a quiz's Active/Inactive status.
+  // Change a quiz's Active/Inactive status.
   const handleStatusChange = (quizId, newStatus) => {
     const updatedQuizzes = quizzes.map((quiz) =>
       quiz.id === quizId ? { ...quiz, status: newStatus } : quiz
@@ -72,7 +85,8 @@ function MyQuiz() {
     setSelectedQuiz(quiz);
     setDeleteDialogOpen(true);
   };
-  // Close the delete confirmation dialog without deleting the quiz
+
+  // Cancel deletion.
   const handleCancelDelete = () => {
     setDeleteDialogOpen(false);
     setSelectedQuiz(null);
@@ -86,42 +100,48 @@ function MyQuiz() {
       (quiz) => quiz.id !== selectedQuiz.id
     );
 
-    persistQuizzes(updatedQuizzes);
-    setDeleteDialogOpen(false);
-    setSelectedQuiz(null);
+    if (persistQuizzes(updatedQuizzes)) {
+      setDeleteDialogOpen(false);
+      setSelectedQuiz(null);
+    }
   };
 
-  // Open the edit dialog with the selected quiz's existing data.
+  // Open the edit dialog with the selected quiz's data.
   const handleEditClick = (quiz) => {
     setEditingQuizId(quiz.id);
     setEditTitle(quiz.quizTitle || "");
+
     setEditQuestions(
       (quiz.questions || []).map((item) => ({
         question: item.question || "",
-        options: Array.isArray(item.options) ? [...item.options] : [],
+        options: Array.isArray(item.options) ? [...item.options] : ["", ""],
         correctAnswer: item.correctAnswer ?? "",
       }))
     );
+
     setEditError("");
     setEditDialogOpen(true);
   };
-  // Close the edit dialog and clear the current editing state and errors
+
+  // Close the edit dialog.
   const handleCloseEdit = () => {
     setEditDialogOpen(false);
     setEditingQuizId(null);
     setEditError("");
   };
 
-  // Update a question's text or correct answer.
+  // Update question text or correct answer.
   const handleQuestionChange = (questionIndex, field, value) => {
     setEditQuestions((previousQuestions) =>
       previousQuestions.map((item, index) =>
         index === questionIndex ? { ...item, [field]: value } : item
       )
     );
+
+    setEditError("");
   };
 
-  // Update one option.
+  // Update an option.
   const handleOptionChange = (questionIndex, optionIndex, value) => {
     setEditQuestions((previousQuestions) =>
       previousQuestions.map((item, index) => {
@@ -133,9 +153,11 @@ function MyQuiz() {
         return { ...item, options: updatedOptions };
       })
     );
+
+    setEditError("");
   };
 
-  // Add another option to a question.
+  // Add an option.
   const handleAddOption = (questionIndex) => {
     setEditQuestions((previousQuestions) =>
       previousQuestions.map((item, index) =>
@@ -146,11 +168,14 @@ function MyQuiz() {
     );
   };
 
-  // Remove an option and keep the correct-answer index consistent.
+  // Remove an option and adjust the correct-answer index.
   const handleRemoveOption = (questionIndex, optionIndex) => {
     setEditQuestions((previousQuestions) =>
       previousQuestions.map((item, index) => {
         if (index !== questionIndex) return item;
+
+        // Keep at least two options.
+        if (item.options.length <= 2) return item;
 
         const updatedOptions = item.options.filter(
           (_, i) => i !== optionIndex
@@ -175,9 +200,11 @@ function MyQuiz() {
         };
       })
     );
+
+    setEditError("");
   };
 
-  // Add a new blank question to the edit dialog.
+  // Add a blank question.
   const handleAddQuestion = () => {
     setEditQuestions((previousQuestions) => [
       ...previousQuestions,
@@ -187,14 +214,16 @@ function MyQuiz() {
         correctAnswer: "",
       },
     ]);
+
     setEditError("");
   };
 
-  // Remove a question from the quiz.
+  // Remove a question.
   const handleRemoveQuestion = (questionIndex) => {
     setEditQuestions((previousQuestions) =>
       previousQuestions.filter((_, index) => index !== questionIndex)
     );
+
     setEditError("");
   };
 
@@ -207,24 +236,30 @@ function MyQuiz() {
       return;
     }
 
-    if (editQuestions.length === 0) {
-      setEditError("A quiz must contain at least one question.");
+    // Require at least 10 questions.
+    if (editQuestions.length < 10) {
+      setEditError("A quiz must contain at least 10 questions.");
       return;
     }
 
     for (let i = 0; i < editQuestions.length; i++) {
       const item = editQuestions[i];
+      const trimmedQuestion = item.question.trim();
 
-      if (item.question.trim().length < 10 || item.question.trim().length > 200) {
+      if (trimmedQuestion.length < 10 || trimmedQuestion.length > 200) {
         setEditError(
           `Question ${i + 1} must be between 10 and 200 characters.`
         );
         return;
       }
 
-      if (item.options.filter((option) => option.trim() !== "").length < 2) {
+      const validOptions = item.options.filter(
+        (option) => option.trim() !== ""
+      );
+
+      if (validOptions.length < 2) {
         setEditError(
-          `Question ${i + 1}: Atleast two option required to save question`
+          `Question ${i + 1} must have at least two non-empty options.`
         );
         return;
       }
@@ -244,28 +279,24 @@ function MyQuiz() {
       }
     }
 
-    try {
-      const updatedQuestions = editQuestions.map((item) => ({
-        question: item.question.trim(),
-        options: item.options.map((option) => option.trim()),
-        correctAnswer: Number(item.correctAnswer),
-      }));
+    const updatedQuestions = editQuestions.map((item) => ({
+      question: item.question.trim(),
+      options: item.options.map((option) => option.trim()),
+      correctAnswer: Number(item.correctAnswer),
+    }));
 
-      const updatedQuizzes = quizzes.map((quiz) =>
-        quiz.id === editingQuizId
-          ? {
-              ...quiz,
-              quizTitle: trimmedTitle,
-              questions: updatedQuestions,
-            }
-          : quiz
-      );
+    const updatedQuizzes = quizzes.map((quiz) =>
+      quiz.id === editingQuizId
+        ? {
+            ...quiz,
+            quizTitle: trimmedTitle,
+            questions: updatedQuestions,
+          }
+        : quiz
+    );
 
-      persistQuizzes(updatedQuizzes);
+    if (persistQuizzes(updatedQuizzes)) {
       handleCloseEdit();
-    } catch (error) {
-      console.error("Unable to save quiz:", error);
-      setEditError("Unable to save the changes. Please try again.");
     }
   };
 
@@ -280,93 +311,128 @@ function MyQuiz() {
           View and manage the quizzes you have created.
         </Typography>
 
-        <TableContainer component={Paper}>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell><strong>Quiz Title</strong></TableCell>
-                <TableCell><strong>Questions</strong></TableCell>
-                <TableCell><strong>Status</strong></TableCell>
-                <TableCell><strong>Created Date</strong></TableCell>
-                <TableCell><strong>Actions</strong></TableCell>
-              </TableRow>
-            </TableHead>
+        {storageError && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {storageError}
+          </Alert>
+        )}
 
-            <TableBody>
-              {quizzes.length === 0 ? (
+        {loadError && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {loadError}
+          </Alert>
+        )}
+
+        {loading ? (
+          <Box sx={{ display: "flex", justifyContent: "center", py: 5 }}>
+            <CircularProgress />
+          </Box>
+        ) : (
+          <TableContainer component={Paper}>
+            <Table>
+              <TableHead>
                 <TableRow>
-                  <TableCell colSpan={5} align="center">
-                    No quizzes found. Create a quiz first.
+                  <TableCell>
+                    <strong>Quiz Title</strong>
+                  </TableCell>
+                  <TableCell>
+                    <strong>Questions</strong>
+                  </TableCell>
+                  <TableCell>
+                    <strong>Status</strong>
+                  </TableCell>
+                  <TableCell>
+                    <strong>Created Date</strong>
+                  </TableCell>
+                  <TableCell>
+                    <strong>Actions</strong>
                   </TableCell>
                 </TableRow>
-              ) : (
-                quizzes.map((quiz) => (
-                  <TableRow key={quiz.id}>
-                    <TableCell>{quiz.quizTitle}</TableCell>
+              </TableHead>
 
-                    <TableCell>{quiz.questions?.length ?? 0}</TableCell>
-
-                    <TableCell>
-                      <Box
-                        sx={{
-                          display: "flex",
-                          gap: 1,
-                          alignItems: "center",
-                          flexWrap: "wrap",
-                        }}
-                      >
-                        <FormControl size="small" sx={{ minWidth: 120 }}>
-                          <Select
-                            value={quiz.status || "Active"}
-                            onChange={(event) =>
-                              handleStatusChange(quiz.id, event.target.value)
-                            }
-                          >
-                            <MenuItem value="Active">Active</MenuItem>
-                            <MenuItem value="Inactive">Inactive</MenuItem>
-                          </Select>
-                        </FormControl>
-
-                        <Chip
-                          label={quiz.status || "Active"}
-                          color={
-                            (quiz.status || "Active") === "Active"
-                              ? "success"
-                              : "default"
-                          }
-                          size="small"
-                        />
-                      </Box>
-                    </TableCell>
-
-                    <TableCell>
-                      {quiz.createdAt
-                        ? new Date(quiz.createdAt).toLocaleDateString()
-                        : "—"}
-                    </TableCell>
-
-                    <TableCell>
-                      <Button
-                        size="small"
-                        onClick={() => handleEditClick(quiz)}
-                      >
-                        Edit
-                      </Button>
-
-                      <Button
-                        size="small"
-                        color="error"
-                        onClick={() => handleDeleteClick(quiz)}
-                      >
-                        Delete
-                      </Button>
+              <TableBody>
+                {quizzes.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} align="center">
+                      No quizzes found. Create a quiz first.
                     </TableCell>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
+                ) : (
+                  quizzes.map((quiz) => (
+                    <TableRow key={quiz.id}>
+                      <TableCell>{quiz.quizTitle}</TableCell>
+
+                      <TableCell>
+                        {quiz.questions?.length ?? 0}
+                      </TableCell>
+
+                      <TableCell>
+                        <Box
+                          sx={{
+                            display: "flex",
+                            gap: 1,
+                            alignItems: "center",
+                            flexWrap: "wrap",
+                          }}
+                        >
+                          <FormControl size="small" sx={{ minWidth: 120 }}>
+                            <Select
+                              value={quiz.status || "Active"}
+                              onChange={(event) =>
+                                handleStatusChange(
+                                  quiz.id,
+                                  event.target.value
+                                )
+                              }
+                            >
+                              <MenuItem value="Active">Active</MenuItem>
+                              <MenuItem value="Inactive">Inactive</MenuItem>
+                            </Select>
+                          </FormControl>
+
+                          <Chip
+                            label={quiz.status || "Active"}
+                            color={
+                              (quiz.status || "Active") === "Active"
+                                ? "success"
+                                : "default"
+                            }
+                            size="small"
+                          />
+                        </Box>
+                      </TableCell>
+
+                      <TableCell>
+                        {quiz.createdAt
+                          ? new Date(quiz.createdAt).toLocaleDateString()
+                          : "—"}
+                      </TableCell>
+
+                      <TableCell>
+                        <Box sx={{ display: "flex", gap: 1 }}>
+                          <Button
+                            size="small"
+                            onClick={() => handleEditClick(quiz)}
+                          >
+                            Edit
+                          </Button>
+
+                          <Button
+                            size="small"
+                            color="error"
+                            onClick={() => handleDeleteClick(quiz)}
+                          >
+                            Delete
+                          </Button>
+                        </Box>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        )}
       </Box>
 
       {/* Edit quiz dialog */}
@@ -382,10 +448,13 @@ function MyQuiz() {
           <TextField
             label="Quiz Title"
             value={editTitle}
-            onChange={(event) => setEditTitle(event.target.value)}
+            onChange={(event) => {
+              setEditTitle(event.target.value);
+              setEditError("");
+            }}
             fullWidth
             required
-            inputProps={{ maxLength: 30 }}
+            slotProps={{ htmlInput: { maxLength: 30 } }}
             helperText={`${editTitle.length}/30 characters (minimum 10)`}
             sx={{ mt: 1, mb: 3 }}
           />
@@ -401,7 +470,9 @@ function MyQuiz() {
                   display: "flex",
                   justifyContent: "space-between",
                   alignItems: "center",
+                  gap: 1,
                   mb: 2,
+                  flexWrap: "wrap",
                 }}
               >
                 <Typography variant="h6">
@@ -430,7 +501,7 @@ function MyQuiz() {
                 fullWidth
                 multiline
                 minRows={2}
-                inputProps={{ maxLength: 200 }}
+                slotProps={{ htmlInput: { maxLength: 200 } }}
                 helperText={`${item.question.length}/200 characters (minimum 10)`}
                 sx={{ mb: 2 }}
               />
@@ -519,9 +590,9 @@ function MyQuiz() {
           </Button>
 
           {editError && (
-            <Typography color="error" sx={{ mt: 2 }}>
+            <Alert severity="error" sx={{ mt: 2 }}>
               {editError}
-            </Typography>
+            </Alert>
           )}
         </DialogContent>
 
@@ -552,6 +623,7 @@ function MyQuiz() {
 
         <DialogActions sx={{ p: 2 }}>
           <Button onClick={handleCancelDelete}>No</Button>
+
           <Button
             color="error"
             variant="contained"

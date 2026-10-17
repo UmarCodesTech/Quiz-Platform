@@ -1,6 +1,7 @@
 
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useDispatch } from "react-redux";
 import {
   Box,
   Button,
@@ -18,10 +19,13 @@ import {
   MenuItem,
   Paper,
   Divider,
+  Alert,
 } from "@mui/material";
+import { setQuizzes } from "../redux/quizSlice";
 
 function CreateQuiz() {
   const navigate = useNavigate();
+  const dispatch = useDispatch();
 
   const [open, setOpen] = useState(true);
   const [questionType, setQuestionType] = useState("single");
@@ -32,43 +36,51 @@ function CreateQuiz() {
   const [options, setOptions] = useState(["", ""]);
   const [correctAnswer, setCorrectAnswer] = useState("");
   const [error, setError] = useState("");
+  const [validationSuccess, setValidationSuccess] = useState(false);
   const [savedQuestions, setSavedQuestions] = useState([]);
   const [successOpen, setSuccessOpen] = useState(false);
 
-  // Open the form only when the single-answer MCQ type is selected.
+  // Open the form for the supported question type.
   const handleContinue = () => {
     if (questionType === "single") {
       setShowForm(true);
       setOpen(false);
+      setError("");
     } else {
       alert("This question type will be implemented in a later step.");
     }
   };
 
-  // Add another empty option to the current question.
+  // Add another option.
   const handleAddOption = () => {
-    setOptions([...options, ""]);
+    setOptions((previousOptions) => [...previousOptions, ""]);
+    setError("");
+    setValidationSuccess(false);
   };
 
-  // Update one option without changing the other options.
+  // Update an option.
   const handleOptionChange = (index, value) => {
-    const updatedOptions = [...options];
-    updatedOptions[index] = value;
-    setOptions(updatedOptions);
+    setOptions((previousOptions) =>
+      previousOptions.map((option, optionIndex) =>
+        optionIndex === index ? value : option
+      )
+    );
+
+    setError("");
+    setValidationSuccess(false);
   };
 
-  // Keep at least two options and adjust the correct answer when one is removed.
+  // Delete an option without allowing fewer than two.
   const handleDeleteOption = (index) => {
     if (options.length <= 2) {
       setError("At least two options are required.");
       return;
     }
 
-    setOptions(
-      options.filter((_, optionIndex) => optionIndex !== index)
+    setOptions((previousOptions) =>
+      previousOptions.filter((_, optionIndex) => optionIndex !== index)
     );
 
-    // Clear or update the correct answer to match the remaining option positions.
     if (correctAnswer === String(index + 1)) {
       setCorrectAnswer("");
     } else if (Number(correctAnswer) > index + 1) {
@@ -76,27 +88,30 @@ function CreateQuiz() {
     }
 
     setError("");
+    setValidationSuccess(false);
   };
 
-  // Validate the title, question, options, and selected correct answer.
+  // Validate the quiz title, question, options, and correct answer.
   const validateQuestion = () => {
     if (quizTitle.trim().length < 10 || quizTitle.trim().length > 30) {
       setError("Quiz title must be between 10 and 30 characters.");
+      setValidationSuccess(false);
       return false;
     }
 
     if (question.trim().length < 10 || question.trim().length > 200) {
       setError("Question must be between 10 and 200 characters.");
+      setValidationSuccess(false);
       return false;
     }
 
-    // Empty options do not count toward the minimum requirement.
     const validOptions = options.filter(
       (option) => option.trim() !== ""
     );
 
     if (validOptions.length < 2) {
       setError("At least two non-empty options are required.");
+      setValidationSuccess(false);
       return false;
     }
 
@@ -105,14 +120,16 @@ function CreateQuiz() {
       !options[Number(correctAnswer) - 1]?.trim()
     ) {
       setError("Please select a valid correct answer.");
+      setValidationSuccess(false);
       return false;
     }
 
     setError("");
+    setValidationSuccess(true);
     return true;
   };
 
-  // Validate and add the current question to the quiz in progress.
+  // Add the current question to the in-progress quiz.
   const handleAddQuestion = () => {
     if (!validateQuestion()) {
       return;
@@ -129,23 +146,28 @@ function CreateQuiz() {
       newQuestion,
     ]);
 
-    // Reset question fields so another question can be entered.
     setQuestion("");
     setOptions(["", ""]);
     setCorrectAnswer("");
     setError("");
+    setValidationSuccess(false);
   };
 
-  // Save the quiz and preserve all quizzes that already exist in localStorage.
+  // Save the quiz to localStorage and update Redux.
   const handleSaveQuiz = () => {
+    if (quizTitle.trim().length < 10 || quizTitle.trim().length > 30) {
+      setError("Quiz title must be between 10 and 30 characters.");
+      return;
+    }
+
+    const questionsToSave = [...savedQuestions];
+
+    // Include the question currently in the form, if started.
     const hasCurrentQuestion =
       question.trim() !== "" ||
       options.some((option) => option.trim() !== "") ||
       correctAnswer !== "";
 
-    const questionsToSave = [...savedQuestions];
-
-    // Include the question currently in the form, if one has been started.
     if (hasCurrentQuestion) {
       if (!validateQuestion()) {
         return;
@@ -158,13 +180,9 @@ function CreateQuiz() {
       });
     }
 
-    if (quizTitle.trim().length < 10 || quizTitle.trim().length > 30) {
-      setError("Quiz title must be between 10 and 30 characters.");
-      return;
-    }
-
-    if (questionsToSave.length === 0) {
-      setError("Add at least one question before saving the quiz.");
+    // Require at least 10 complete questions.
+    if (questionsToSave.length < 10) {
+      setError("Please add at least 10 questions to save this quiz.");
       return;
     }
 
@@ -175,7 +193,9 @@ function CreateQuiz() {
         : [];
 
       if (!Array.isArray(existingQuizzes)) {
-        setError("Saved quiz data is invalid. Please check localStorage.");
+        setError(
+          "Saved quiz data is invalid. Please check localStorage."
+        );
         return;
       }
 
@@ -187,19 +207,21 @@ function CreateQuiz() {
         createdAt: new Date().toISOString(),
       };
 
-      // Append the new quiz instead of replacing existing saved quizzes.
-      localStorage.setItem(
-        "question",
-        JSON.stringify([...existingQuizzes, newQuiz])
-      );
+      // Preserve all existing quizzes.
+      const updatedQuizzes = [...existingQuizzes, newQuiz];
 
-      // Reset the form after the quiz has been saved successfully.
+      // Persist first; update Redux only after storage succeeds.
+      localStorage.setItem("question", JSON.stringify(updatedQuizzes));
+      dispatch(setQuizzes(updatedQuizzes));
+
+      // Reset the form after successful saving.
       setSavedQuestions([]);
       setQuestion("");
       setOptions(["", ""]);
       setCorrectAnswer("");
       setQuizTitle("");
       setError("");
+      setValidationSuccess(false);
       setSuccessOpen(true);
     } catch (saveError) {
       console.error("Unable to save quiz:", saveError);
@@ -231,7 +253,7 @@ function CreateQuiz() {
         </Button>
 
         {showForm && (
-          <Paper sx={{ p: 3, mt: 3 }}>
+          <Paper sx={{ p: { xs: 2, sm: 3 }, mt: 3 }}>
             <Typography variant="h5" gutterBottom>
               Single Correct Answer MCQ
             </Typography>
@@ -243,6 +265,7 @@ function CreateQuiz() {
               onChange={(event) => {
                 setQuizTitle(event.target.value);
                 setError("");
+                setValidationSuccess(false);
               }}
               slotProps={{ htmlInput: { maxLength: 30 } }}
               helperText="Enter 10–30 characters"
@@ -274,6 +297,7 @@ function CreateQuiz() {
               onChange={(event) => {
                 setQuestion(event.target.value);
                 setError("");
+                setValidationSuccess(false);
               }}
               slotProps={{ htmlInput: { maxLength: 200 } }}
               helperText="Enter 10–200 characters"
@@ -330,6 +354,7 @@ function CreateQuiz() {
               onChange={(event) => {
                 setCorrectAnswer(event.target.value);
                 setError("");
+                setValidationSuccess(false);
               }}
               sx={{ mt: 3 }}
             >
@@ -345,9 +370,15 @@ function CreateQuiz() {
             </TextField>
 
             {error && (
-              <Typography color="error" sx={{ mt: 2 }}>
+              <Alert severity="error" sx={{ mt: 2 }}>
                 {error}
-              </Typography>
+              </Alert>
+            )}
+
+            {validationSuccess && (
+              <Alert severity="success" sx={{ mt: 2 }}>
+                Validation successful! Proceed with adding the question.
+              </Alert>
             )}
 
             <Box
@@ -383,7 +414,7 @@ function CreateQuiz() {
         )}
       </Box>
 
-      {/* Let the user select the question type before opening the form. */}
+      {/* Question type selection dialog */}
       <Dialog
         open={open}
         onClose={() => setOpen(false)}
@@ -396,7 +427,9 @@ function CreateQuiz() {
           <FormControl>
             <RadioGroup
               value={questionType}
-              onChange={(event) => setQuestionType(event.target.value)}
+              onChange={(event) =>
+                setQuestionType(event.target.value)
+              }
             >
               <FormControlLabel
                 value="single"
@@ -439,7 +472,7 @@ function CreateQuiz() {
         </DialogActions>
       </Dialog>
 
-      {/* Confirm that the quiz was saved and offer a link to My Quizzes. */}
+      {/* Save confirmation dialog */}
       <Dialog
         open={successOpen}
         onClose={handleCloseSuccess}
