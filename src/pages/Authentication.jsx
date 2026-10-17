@@ -22,7 +22,7 @@ function Authentication() {
     const trimmedName = fullName.trim();
 
     // Check that the name contains between 5 and 50 characters.
-    if (trimmedName.length < 3 || trimmedName.length > 50) {
+    if (trimmedName.length < 5 || trimmedName.length > 50) {
       setError("Full name must be between 3 and 50 characters.");
       return;
     }
@@ -36,9 +36,8 @@ function Authentication() {
     }
 
     // Pass the validated name to the Play Quiz page.
-    navigate("/play-quiz", {
-      state: { fullName: trimmedName },
-    });
+    sessionStorage.setItem("participantName", trimmedName);
+navigate("/play-quiz", { state: { fullName: trimmedName } });
   };
 
   return (

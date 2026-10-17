@@ -21,8 +21,8 @@ function PlayQuiz() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Read the participant's name passed from the Authentication page.
-  const fullName = location.state?.fullName || "";
+  // Read the participant name from session storage.
+  const fullName = sessionStorage.getItem("participantName") || "";
 
   const [activeQuizzes, setActiveQuizzes] = useState([]);
   const [selectedQuizId, setSelectedQuizId] = useState("");
@@ -32,20 +32,19 @@ function PlayQuiz() {
   const [answers, setAnswers] = useState([]);
   const [error, setError] = useState("");
 
-  // Load saved quizzes when the Play Quiz page first opens.
+  // Load active quizzes from localStorage.
   useEffect(() => {
     try {
       const storedData = localStorage.getItem("question");
       const parsedData = storedData ? JSON.parse(storedData) : [];
 
       if (Array.isArray(parsedData)) {
-        // Only show active quizzes containing at least 10 questions.
         setActiveQuizzes(
           parsedData.filter(
             (quiz) =>
               quiz.status === "Active" &&
               Array.isArray(quiz.questions) &&
-              quiz.questions.length >= 10
+              quiz.questions.length > 0
           )
         );
       }
@@ -55,8 +54,16 @@ function PlayQuiz() {
     }
   }, []);
 
+  // Switch participant and abandon the current attempt.
+  const handleChangeUser = () => {
+    sessionStorage.removeItem("participantName");
+    navigate("/authentication", {
+      state: { changeUser: true },
+    });
+  };
+
+  // Start the selected quiz.
   const handleStartQuiz = () => {
-    // Find the quiz selected by the participant.
     const quiz = activeQuizzes.find(
       (item) => String(item.id) === String(selectedQuizId)
     );
@@ -66,26 +73,24 @@ function PlayQuiz() {
       return;
     }
 
-    // Use the first 10 questions for this quiz attempt.
     setCurrentQuiz({
       ...quiz,
-      questions: quiz.questions.slice(0, 10),
+      questions: quiz.questions,
     });
 
-    // Reset the attempt so previous answers cannot carry over.
     setCurrentQuestionIndex(0);
     setSelectedAnswer("");
     setAnswers([]);
     setError("");
   };
 
+  // Save the current answer and move forward or submit.
   const handleNext = () => {
     if (selectedAnswer === "") {
       setError("Please select an answer before continuing.");
       return;
     }
 
-    // Save the selected option number for the current question.
     const updatedAnswers = [...answers];
     updatedAnswers[currentQuestionIndex] = Number(selectedAnswer);
 
@@ -93,11 +98,16 @@ function PlayQuiz() {
     setError("");
 
     if (currentQuestionIndex < currentQuiz.questions.length - 1) {
-      // Move to the next question and clear the previous selection.
-      setCurrentQuestionIndex((previousIndex) => previousIndex + 1);
-      setSelectedAnswer("");
+      const nextIndex = currentQuestionIndex + 1;
+
+      setCurrentQuestionIndex(nextIndex);
+      setSelectedAnswer(
+        updatedAnswers[nextIndex] !== undefined
+          ? String(updatedAnswers[nextIndex])
+          : ""
+      );
     } else {
-      // Award one point for each answer that matches the correct answer.
+      // Calculate the final score.
       const score = currentQuiz.questions.reduce(
         (total, question, index) =>
           total +
@@ -105,7 +115,7 @@ function PlayQuiz() {
         0
       );
 
-      // Send the quiz, score, and selected answers to the results page.
+      // Send results to the Result page.
       navigate("/result", {
         state: {
           fullName,
@@ -119,7 +129,33 @@ function PlayQuiz() {
     }
   };
 
-  // Require the participant to enter their name before playing.
+  // Go to the previous question while preserving answers.
+  const handlePrevious = () => {
+    if (currentQuestionIndex === 0) {
+      return;
+    }
+
+    const updatedAnswers = [...answers];
+
+    if (selectedAnswer !== "") {
+      updatedAnswers[currentQuestionIndex] = Number(selectedAnswer);
+    }
+
+    setAnswers(updatedAnswers);
+
+    const previousIndex = currentQuestionIndex - 1;
+
+    setCurrentQuestionIndex(previousIndex);
+    setSelectedAnswer(
+      updatedAnswers[previousIndex] !== undefined
+        ? String(updatedAnswers[previousIndex])
+        : ""
+    );
+
+    setError("");
+  };
+
+  // Require a participant name before playing.
   if (!fullName) {
     return (
       <Container maxWidth="sm">
@@ -144,9 +180,30 @@ function PlayQuiz() {
   return (
     <Container maxWidth="md">
       <Box sx={{ py: 4 }}>
-        <Typography variant="h5" gutterBottom>
-          Welcome, {fullName}
-        </Typography>
+        {/* Participant name and Change User option. */}
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            flexWrap: "wrap",
+            gap: 2,
+          }}
+        >
+          <Typography variant="h5" gutterBottom>
+            Welcome, {fullName}
+          </Typography>
+
+          {!currentQuiz && (
+            <Button
+            variant="outlined"
+            color="secondary"
+            onClick={handleChangeUser}
+          >
+            Change User
+          </Button>
+          )}
+        </Box>
 
         {!currentQuiz ? (
           <Paper elevation={2} sx={{ p: { xs: 2, sm: 4 }, mt: 3 }}>
@@ -260,7 +317,23 @@ function PlayQuiz() {
               </Alert>
             )}
 
-            <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 3 }}>
+            {/* Previous and Next/Submit buttons. */}
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "space-between",
+                gap: 2,
+                mt: 3,
+              }}
+            >
+              <Button
+                variant="outlined"
+                onClick={handlePrevious}
+                disabled={currentQuestionIndex === 0}
+              >
+                Previous
+              </Button>
+
               <Button
                 variant="contained"
                 onClick={handleNext}
